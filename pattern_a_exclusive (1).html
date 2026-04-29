@@ -6,7 +6,7 @@
   th { background: #f5f5f5; font-weight: 500; font-size: 12px; color: #555; vertical-align: bottom; }
   th.pair-a { border-bottom: 2px solid #5DCAA5; }
   th.pair-b { border-bottom: 2px solid #aaa; }
-  td.label { text-align: left; font-size: 13px; color: #111; padding-left: 10px; }
+  th.label  { text-align: left; font-size: 13px; color: #111; padding-left: 10px; font-weight: 400; }
 
   .pill {
     display: inline-block; min-width: 44px; min-height: 28px;
@@ -14,10 +14,10 @@
     font-size: 13px; font-family: inherit;
     font-variant-numeric: tabular-nums; cursor: pointer;
   }
-  .pill.is-on      { background: #E1F5EE; color: #085041; border: 1.5px solid #5DCAA5; font-weight: 700; }
-  .pill.is-off     { background: #f0f0f0; color: #666; border: 1.5px solid #ccc; font-weight: 400; }
-  .pill.is-blocked { background: #f7f7f7; color: #bbb; border: 1.5px solid #e0e0e0; font-weight: 400; cursor: not-allowed; }
-  .pill:not(.is-blocked):hover { opacity: 0.75; }
+  .pill.is-on  { background: #E1F5EE; color: #085041; border: 1.5px solid #5DCAA5; font-weight: 700; }
+  .pill.is-off { background: #f0f0f0; color: #666;    border: 1.5px solid #ccc;    font-weight: 400; }
+  .pill:disabled { background: #f7f7f7; color: #bbb; border: 1.5px solid #e0e0e0; font-weight: 400; cursor: not-allowed; }
+  .pill:not(:disabled):hover { opacity: 0.75; }
   .pill:focus-visible { outline: 2px solid #1D9E75; outline-offset: 3px; }
 
   .hdr-btn {
@@ -28,15 +28,15 @@
     cursor: pointer; font-family: inherit; font-size: 13px; line-height: 1;
   }
   .hdr-btn:hover { background: #eee; }
-  .hdr-btn.is-blocked { color: #ccc; border-color: #ddd; cursor: not-allowed; }
-  .hdr-btn.is-blocked:hover { background: transparent; }
+  .hdr-btn:disabled { color: #ccc; border-color: #ddd; cursor: not-allowed; }
+  .hdr-btn:disabled:hover { background: transparent; }
   .hdr-btn:focus-visible { outline: 2px solid #1D9E75; outline-offset: 2px; }
   .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
 </style>
 
 <div class="tbl-wrap">
-  <h2 class="sr-only">Settings table. One value per row. Columns A and B are mutually exclusive, as are C and D.</h2>
   <table>
+    <caption class="sr-only">Settings table. One value per row. Columns A and B are mutually exclusive, as are C and D.</caption>
     <thead>
       <tr>
         <th style="text-align:left;" scope="col">Setting</th>
@@ -76,8 +76,7 @@ function pairBlocked(col) {
 
 function canToggleOn(r, c) {
   if (pairBlocked(c)) return false;
-  const pairCols = pairs[c];
-  const otherPairOn = pairCols.filter(p => p !== c).some(p => state[r][p]);
+  const otherPairOn = pairs[c].filter(p => p !== c).some(p => state[r][p]);
   if (otherPairOn) return false;
   const alreadyOnInRow = colNames.some((_, ci) => state[r][ci] && ci !== c);
   if (alreadyOnInRow) return false;
@@ -91,15 +90,16 @@ function renderHeaders() {
     const blocked = pairBlocked(c);
     if (blocked) {
       th.innerHTML = `Col ${col}<br>
-        <button class="hdr-btn is-blocked" disabled
-          aria-label="Col ${col} unavailable while paired column is active" title="Paired column active">—</button>`;
-    } else {
-      const symbol = on ? '✕' : '✓';
-      const label = on ? `Disable all in Col ${col}` : `Enable all in Col ${col}`;
-      const title = on ? 'Disable all' : 'Enable all';
+        <button class="hdr-btn" disabled
+          aria-label="Col ${col} unavailable — paired column has active items">—</button>`;
+    } else if (on) {
       th.innerHTML = `Col ${col}<br>
-        <button class="hdr-btn" onclick="setAll(${c},${!on})"
-          aria-label="${label}" title="${title}">${symbol}</button>`;
+        <button class="hdr-btn" onclick="setAll(${c},false)"
+          aria-label="Disable all in Col ${col}" title="Disable all">✕</button>`;
+    } else {
+      th.innerHTML = `Col ${col}<br>
+        <button class="hdr-btn" onclick="setAll(${c},true)"
+          aria-label="Enable all in Col ${col}" title="Enable all">✓</button>`;
     }
   });
 }
@@ -109,21 +109,21 @@ function renderBody() {
   tbody.innerHTML = '';
   rows.forEach((row, r) => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td class="label">${row}</td>` +
+    tr.innerHTML = `<th scope="row" class="label">${row}</th>` +
       colNames.map((col, c) => {
         const on = state[r][c];
         const blocked = !on && !canToggleOn(r, c);
-        const cls = on ? 'is-on' : blocked ? 'is-blocked' : 'is-off';
+        const cls = on ? 'is-on' : 'is-off';
         const label = on
-          ? `${row}, Col ${col}: enabled. Click to disable.`
+          ? `${row}, Col ${col}: on. Click to turn off.`
           : blocked
             ? `${row}, Col ${col}: unavailable.`
-            : `${row}, Col ${col}: disabled. Click to enable.`;
+            : `${row}, Col ${col}: off. Click to turn on.`;
         return `<td>
           <button class="pill ${cls}"
-            role="switch" aria-pressed="${on}" ${blocked ? 'aria-disabled="true"' : ''}
+            role="switch" aria-pressed="${on}"
             aria-label="${label}"
-            onclick="${blocked ? '' : `toggle(${r},${c})`}"
+            ${blocked ? 'disabled' : `onclick="toggle(${r},${c})"`}
           >${nums[r][c]}</button>
         </td>`;
       }).join('');
@@ -136,7 +136,7 @@ function render() { renderHeaders(); renderBody(); }
 function toggle(r, c) {
   if (!state[r][c] && !canToggleOn(r, c)) return;
   if (!state[r][c]) {
-    colNames.forEach((_, ci) => state[r][ci] = false);
+    colNames.forEach((_, ci) => { state[r][ci] = false; });
   }
   state[r][c] = !state[r][c];
   render();
@@ -148,13 +148,14 @@ function setAll(col, val) {
   rows.forEach((_, r) => {
     if (val) {
       if (!canToggleOn(r, col)) return;
-      colNames.forEach((_, ci) => state[r][ci] = false);
+      colNames.forEach((_, ci) => { state[r][ci] = false; });
       state[r][col] = true;
     } else {
       state[r][col] = false;
     }
   });
   render();
+  document.getElementById(`th-${col}`).querySelector('.hdr-btn').focus();
 }
 
 render();
